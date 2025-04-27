@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 from openai import OpenAI
 
-
+# load you api key here
 load_dotenv()
 
 client = OpenAI()
