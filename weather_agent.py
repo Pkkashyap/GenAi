@@ -3,6 +3,7 @@ import json
 from dotenv import load_dotenv
 from openai import OpenAI
 import requests
+import os
 
 load_dotenv()
 client = OpenAI()
@@ -23,24 +24,33 @@ def get_weather(city):
 
 
 
+def run_command(command):
+    print(command)
+    result  = os.system(command=command)
+    return result
+
 available_tools = {
     "get_weather": {
         "fn":get_weather,
         "description":"takes the city name as input and gives the current weather for the city"
+    },
+
+    "run_command": {
+        "fn":run_command,
+        "description":"takes the windows command as input to execute on system and returns output"
     }
 }
 
 system_prompt = """
-You are an smart and helpful AI agent who is specialized in resolving user query only for weather.
+You are an smart and helpful AI agent who is specialized in resolving user query.
 You work on  start,analyze,action,observe and output modes.
 For the given user query, please perform the modes.
 Based on analyze mode select the available tools and based on tool selection you perform the action.
 Wait for observation and based on the observation from the tool call resolve user query
-If you user ask any other query, please reject the query saying this is only for weather agent.
-
+You can take user input and convert those into python command and execute by call tools
 
 Rules:
- - solve only weather related query
+ - 
  - Follow the strict  JSON output as per output schema
  - Always perform  one step at a time
  - Carefully analyse the user query
@@ -55,7 +65,8 @@ Output JSON Format:
 }}
 
 Available tools:
-get_weather
+ - get_weather : Take city name as input and returns the current weather 
+ - run_command : takes the windows command as input to execute on system and returns output
 
 
 Example:
@@ -76,43 +87,33 @@ Output: {{"step":"observe", "content":"Mumbai 34 degree cel"}}
 Output: {{"step":"action", "function":"get_weather","input":"bangalore"}}
 Output: {{"step":"observe", "content":"bangalore 34 degree cel"}}
 Output: {{"step":"output", "content":"The weather of the Varanasi is 34 degree cel , weather of the bangalore is 34 degree cel,weather of the Mumbai is 34 degree cel"}}
-
-user query : what is 9+9?
-Output: {{"step":"start", "content":"User is asking about the mathematical question"}}
-Output: {{"step":"analyze", "content":"I should reject this query as its not related to weather query"}}
-Output: {{"step":"observe", "content":"incorrect user query"}}
-Output: {{"step":"output", "content":"Its not the correct query to ask for this agent"}}
-
-user query : what is life?
-Output: {{"step":"start", "content":"User is asking about the mathematical question"}}
-Output: {{"step":"analyze", "content":"I should reject this query as its not related to weather query"}}
-Output: {{"step":"observe", "content":"incorrect user query"}}
-Output: {{"step":"output", "content":"Its not the correct query to ask for this agent"}}
 """
 
-user_query = input(">")
 message = [ {"role":"system","content":system_prompt}]
-message.append(
-    {"role":"user","content":user_query},
-)
-while True:
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        response_format={"type": "json_object"},
-        messages=message
-    )
-    res = json.loads(response.choices[0].message.content)
-    message.append({"role": "assistant", "content": json.dumps(res)})
 
-    if(res.get("step")=="output"):
-        print("🧠▶️",res.get("content"))
-        break
-    elif(res.get("step")=="action"):
-        tool_name = res.get("function")
-        tool_input = res.get("input")
-        if available_tools.get(tool_name,False)!=False:
-            output = available_tools[tool_name].get("fn")(tool_input)
-            message.append({"role":"assistant","content":json.dumps({"step":"observe", "content":output})})
-            continue
-    else:
-        print("🤖🤖", res.get("content"))
+while True:
+    user_query = input(">")
+    message.append(
+        {"role":"user","content":user_query},
+    )
+    while True:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            response_format={"type": "json_object"},
+            messages=message
+        )
+        res = json.loads(response.choices[0].message.content)
+        message.append({"role": "assistant", "content": json.dumps(res)})
+
+        if(res.get("step")=="output"):
+            print("🧠▶️",res.get("content"))
+            break
+        elif(res.get("step")=="action"):
+            tool_name = res.get("function")
+            tool_input = res.get("input")
+            if available_tools.get(tool_name,False)!=False:
+                output = available_tools[tool_name].get("fn")(tool_input)
+                message.append({"role":"assistant","content":json.dumps({"step":"observe", "content":output})})
+                continue
+        else:
+            print("🤖🤖", res.get("content"))
