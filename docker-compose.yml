@@ -1,0 +1,17 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - '11434:11434'
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              count: all
+    volumes:
+      - models:/root/.ollama/models
+
+volumes:
+  models:
